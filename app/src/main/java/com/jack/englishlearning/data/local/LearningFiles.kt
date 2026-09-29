@@ -1,4 +1,4 @@
-package com.jack.englishlearning
+package com.jack.englishlearning.data.local
 
 /** Text is deliberately not aligned to playback; preserve the author's paragraph order. */
 object LearningFiles {
