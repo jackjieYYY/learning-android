@@ -68,7 +68,7 @@ fun App(themeSettings: ThemeSettings) {
         BackHandler(onBack = leaveStudy)
         StudyScreen(video, repository, study.state, onBack = leaveStudy)
     } else {
-        LibraryScreen(library.state, library::selectRoot, library::refresh, library::download, library::pause,
+        LibraryScreen(library.state, library::refresh, library::download, library::pause,
             onVideo = { video ->
                 selectedTitle = video.title
                 selectedTranscript = video.transcriptUri

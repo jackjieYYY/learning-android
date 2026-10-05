@@ -1,6 +1,5 @@
 package com.jack.englishlearning.ui.library
 
-import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,7 +21,6 @@ data class CourseDownload(val state: WorkInfo.State, val message: String) {
         ?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(0, 100)
 }
 data class LibraryUiState(
-    val root: String? = null,
     val videos: List<LearningVideo> = emptyList(),
     val cloudLessons: List<CloudLessonStatus> = emptyList(),
     val downloads: Map<String, CourseDownload> = emptyMap(),
@@ -31,7 +29,7 @@ data class LibraryUiState(
 )
 
 class LibraryViewModel(private val repository: LibraryRepository) : ViewModel() {
-    var state by mutableStateOf(LibraryUiState(root = repository.root))
+    var state by mutableStateOf(LibraryUiState())
         private set
     private var scanJob: Job? = null
     private var refreshJob: Job? = null
@@ -60,21 +58,11 @@ class LibraryViewModel(private val repository: LibraryRepository) : ViewModel() 
     fun download(lesson: CloudLesson) { repository.sync.download(lesson) }
     fun pause(id: String) { repository.sync.pause(id) }
 
-    fun selectRoot(uri: Uri) {
-        try {
-            repository.selectRoot(uri)
-            state = state.copy(root = repository.root)
-            loadLocal()
-        } catch (_: SecurityException) {
-            state = state.copy(error = "无法保留此目录的读取权限，请选择手机本地的学习目录。")
-        }
-    }
-
     /** Refreshing discovery must never enqueue video downloads. */
     fun refresh() {
+        if (refreshJob?.isActive == true) return
         state = state.copy(error = null)
         loadLocal()
-        refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             state = state.copy(loading = true)
             try {
@@ -88,17 +76,11 @@ class LibraryViewModel(private val repository: LibraryRepository) : ViewModel() 
 
     private fun loadLocal() {
         scanJob?.cancel()
-        val root = state.root
         scanJob = viewModelScope.launch {
             val cloudLessons = repository.cloud.statuses()
             val listedUris = cloudLessons.mapNotNull { it.video?.uri }.toSet()
             val orphaned = repository.cloud.videos().filter { it.uri !in listedUris }
-            var localError: String? = null
-            val imported = try { root?.let { repository.scan(it) }.orEmpty() }
-                catch (cancel: CancellationException) { throw cancel }
-                catch (error: Exception) { localError = error.message; emptyList() }
-            state = state.copy(videos = (orphaned + imported).distinctBy { it.uri }, cloudLessons = cloudLessons,
-                error = localError ?: state.error)
+            state = state.copy(videos = orphaned, cloudLessons = cloudLessons)
         }
     }
 }

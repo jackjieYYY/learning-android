@@ -8,10 +8,6 @@ import com.jack.englishlearning.domain.model.TranscriptSentence
 import org.json.JSONObject
 
 object LearningFiles {
-    fun isVideo(name: String) = name.endsWith(".mp4", ignoreCase = true)
-    fun transcriptName(videoName: String) = videoName.dropLast(4) + ".bilingual.json"
-    fun title(videoName: String) = videoName.dropLast(4).replace('-', ' ').replace('_', ' ')
-
     fun paragraphs(text: String): List<TranscriptParagraph> {
         val normalized = text.removePrefix("\uFEFF").trim()
         if (normalized.isEmpty()) return emptyList()

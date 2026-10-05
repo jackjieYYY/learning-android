@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -115,7 +116,7 @@ internal fun VideoPane(video: LearningVideo, repository: LibraryRepository, modi
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                playbackError = "视频无法播放：${error.errorCodeName}。请检查文件是否完整、目录权限是否有效。"
+                playbackError = "视频无法播放：${error.errorCodeName}。请检查课程文件是否完整。"
             }
         }
         isPlaying = player.isPlaying
@@ -179,14 +180,14 @@ private fun PlaybackBar(player: Player, isPlaying: Boolean, showPip: Boolean, on
     val known = duration != C.TIME_UNSET && duration > 0
     val fraction = dragFraction ?: if (known) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Row(Modifier.fillMaxWidth().background(palette.panel).pixelBlock(palette.panelColors(), seed = 9)
-        .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        .padding(horizontal = 8.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         PixelIconButton(if (isPlaying) PixelGlyphs.Pause else PixelGlyphs.Play, if (isPlaying) "暂停" else "播放",
-            { togglePlayback(player) }, kind = PixelButtonKind.Primary)
+            { togglePlayback(player) }, kind = PixelButtonKind.Primary, size = 22.dp, iconSize = 12.dp)
         val shown = if (known) (fraction * duration).toLong() else position
         Text("${formatTime(shown)} / ${if (known) formatTime(duration) else "--:--"}",
-            style = MaterialTheme.typography.labelMedium, color = palette.text)
-        Canvas(Modifier.weight(1f).height(28.dp)
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp, lineHeight = 14.sp), color = palette.text)
+        Canvas(Modifier.weight(1f).height(14.dp)
             .semantics {
                 contentDescription = "播放进度"
                 progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
@@ -209,7 +210,7 @@ private fun PlaybackBar(player: Player, isPlaying: Boolean, showPip: Boolean, on
                     },
                     onDragCancel = { dragFraction = null })
             }) {
-            val p = artPixelPx()
+            val p = artPixelPx() / 2
             val trackHeight = 3 * p
             val top = (size.height - trackHeight) / 2
             drawRect(palette.outline, Offset(0f, top - p), Size(size.width, trackHeight + 2 * p))
@@ -223,6 +224,6 @@ private fun PlaybackBar(player: Player, isPlaying: Boolean, showPip: Boolean, on
             drawRect(palette.accentLight, Offset(x + p, y + p), Size(thumb - 2 * p, thumb))
             drawRect(palette.accent, Offset(x + 2 * p, y + 2 * p), Size(thumb - 3 * p, thumb - 2 * p))
         }
-        if (showPip && isPlaying) PixelIconButton(PixelGlyphs.PictureInPicture, "小窗", onPip)
+        if (showPip && isPlaying) PixelIconButton(PixelGlyphs.PictureInPicture, "小窗", onPip, size = 22.dp, iconSize = 12.dp)
     }
 }

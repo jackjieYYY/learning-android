@@ -23,6 +23,7 @@ import com.jack.englishlearning.ui.theme.PixelTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.jack.englishlearning.MainActivity
 import com.jack.englishlearning.data.LibraryRepository
@@ -52,16 +53,17 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
     }
     val palette = PixelTheme.palette
     Column(Modifier.fillMaxSize()) {
-        if (!inPip) PixelTopBar(video.title, navigation = { PixelIconButton(PixelGlyphs.Back, "返回", onBack) })
+        if (!inPip) PixelTopBar(video.title, compact = true,
+            navigation = { PixelIconButton(PixelGlyphs.Back, "返回", onBack, size = 24.dp, iconSize = 14.dp) })
         val contentModifier = Modifier.weight(1f).fillMaxWidth()
         val bilingualPane: @Composable (Modifier) -> Unit = { modifier ->
             Column(modifier) {
-                Text("点句播放，双击暂停或继续，左右滑动调整 5 秒。" +
-                    (if (state.paragraphs.any { it.explanation != null }) "\n长按段落看讲解。" else ""),
-                    style = MaterialTheme.typography.labelSmall, color = palette.textMuted,
+                Text("点句播放 · 双击暂停 · 左右±5秒" +
+                    (if (state.paragraphs.any { it.explanation != null }) " · 长按讲解" else ""),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 14.sp), color = palette.textMuted,
                     modifier = Modifier.fillMaxWidth().background(palette.background)
-                        .padding(horizontal = 16.dp, vertical = 8.dp))
-                PixelDivider()
+                        .padding(horizontal = 8.dp, vertical = 2.dp))
+                PixelDivider(height = 2.dp)
                 when {
                     state.loading -> PixelProgressBar(null, Modifier.padding(16.dp))
                     state.error != null -> Text(state.error, style = MaterialTheme.typography.bodyMedium,

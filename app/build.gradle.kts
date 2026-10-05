@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 // Release version comes from the Git tag in CI (-PappVersionName=1.4.0); versionCode = major*10000 + minor*100 + patch.
-val appVersionName = (findProperty("appVersionName") as String?) ?: "1.5.0"
+val appVersionName = (findProperty("appVersionName") as String?) ?: "1.6.0"
 val appVersionCode = Regex("""(\d+)\.(\d+)\.(\d+)""").matchEntire(appVersionName)?.destructured
     ?.let { (major, minor, patch) ->
         require(minor.toInt() < 100 && patch.toInt() < 100) { "minor/patch must be < 100: $appVersionName" }
@@ -66,7 +66,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
     implementation("androidx.work:work-runtime-ktx:2.10.1")
-    implementation("androidx.documentfile:documentfile:1.1.0")
     implementation("androidx.media3:media3-exoplayer:1.6.1")
     implementation("androidx.media3:media3-ui:1.6.1")
     implementation("androidx.media3:media3-session:1.6.1")

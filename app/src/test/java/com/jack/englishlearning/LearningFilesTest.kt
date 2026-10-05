@@ -24,9 +24,6 @@ class LearningFilesTest {
         assertTrue(LearningFiles.paragraphs("\uFEFF \r\n").isEmpty())
         assertTrue(LearningFiles.paragraphs("""{"paragraphs":[]}""").isEmpty())
     }
-    @Test fun matchesOnlyNewSidecarName() {
-        assertEquals("Lesson.bilingual.json", LearningFiles.transcriptName("Lesson.MP4"))
-    }
     @Test fun rejectsInvalidStructureOrValues() {
         listOf("Old plain text", "{}", "[]", valid.replace("1250", "-1"),
             valid.replace("1250", "1.25"), valid.replace("1250", "\"1250\""),

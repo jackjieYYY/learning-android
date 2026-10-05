@@ -2,15 +2,18 @@ package com.jack.englishlearning.ui.library
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,16 +31,15 @@ import com.jack.englishlearning.ui.theme.Brand
 import com.jack.englishlearning.ui.theme.PixelTheme
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(state: LibraryUiState, onSelectRoot: (Uri) -> Unit, onRefresh: () -> Unit,
+fun LibraryScreen(state: LibraryUiState, onRefresh: () -> Unit,
                   onDownload: (CloudLesson) -> Unit, onPause: (String) -> Unit, onVideo: (LearningVideo) -> Unit,
                   onSettings: () -> Unit = {}, header: @Composable () -> Unit = {}) {
     val context = LocalContext.current
     val palette = PixelTheme.palette
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) onSelectRoot(uri)
-    }
+    val refreshState = rememberPullToRefreshState()
     fun download(lesson: CloudLesson) {
         onDownload(lesson)
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -46,19 +48,20 @@ fun LibraryScreen(state: LibraryUiState, onSelectRoot: (Uri) -> Unit, onRefresh:
     }
     Column(Modifier.fillMaxSize()) {
         PixelTopBar("英语听力", actions = { PixelIconButton(PixelGlyphs.Gear, "设置", onSettings) })
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(),
+        PullToRefreshBox(isRefreshing = state.loading,
+            onRefresh = { if (!state.loading) onRefresh() }, state = refreshState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = refreshState, isRefreshing = state.loading,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    containerColor = palette.panel, color = palette.accent)
+            }) {
+        LazyColumn(Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
         ) {
             item(key = "app-update") { header() }
-            item(key = "actions") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PixelButton("刷新课程", onRefresh, enabled = !state.loading, icon = PixelGlyphs.Refresh)
-                    PixelButton("导入本地目录", { picker.launch(state.root?.let(Uri::parse)) },
-                        kind = PixelButtonKind.Secondary, icon = PixelGlyphs.Folder)
-                }
-            }
-            if (state.loading) item(key = "loading") { PixelProgressBar(null) }
             state.error?.let { message ->
                 item(key = "error") { Text(message, style = MaterialTheme.typography.labelMedium, color = palette.error) }
             }
@@ -66,7 +69,7 @@ fun LibraryScreen(state: LibraryUiState, onSelectRoot: (Uri) -> Unit, onRefresh:
                 LessonCard(status, state.downloads[status.lesson.id], onVideo, ::download, onPause)
             }
             if (state.videos.isNotEmpty()) item(key = "local-title") {
-                PixelSectionLabel("本地教材", Modifier.padding(top = 8.dp))
+                PixelSectionLabel("离线课程", Modifier.padding(top = 8.dp))
             }
             items(state.videos, key = { it.uri }) { video ->
                 PixelPanel(Modifier.fillMaxWidth(), seed = video.uri.hashCode(), onClick = { onVideo(video) }) {
@@ -80,10 +83,11 @@ fun LibraryScreen(state: LibraryUiState, onSelectRoot: (Uri) -> Unit, onRefresh:
                 }
             }
             if (state.videos.isEmpty() && state.cloudLessons.isEmpty() && !state.loading) item(key = "empty") {
-                Text("暂时没有课程。连接网络后点击“刷新课程”，也可以导入本地目录。",
+                Text("暂无课程，下拉刷新。",
                     style = MaterialTheme.typography.bodyMedium, color = palette.text)
             }
             item(key = "bottom-inset") { Spacer(Modifier.navigationBarsPadding()) }
+        }
         }
     }
 }
