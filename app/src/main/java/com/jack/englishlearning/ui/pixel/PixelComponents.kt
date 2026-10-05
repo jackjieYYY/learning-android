@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.jack.englishlearning.ui.theme.ArtPixel
 import com.jack.englishlearning.ui.theme.PixelTheme
@@ -77,16 +78,17 @@ fun PixelButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
 
 @Composable
 fun PixelIconButton(glyph: PixelGlyph, contentDescription: String, onClick: () -> Unit, modifier: Modifier = Modifier,
-                    kind: PixelButtonKind = PixelButtonKind.Secondary, enabled: Boolean = true) {
+                    kind: PixelButtonKind = PixelButtonKind.Secondary, enabled: Boolean = true,
+                    size: Dp = 44.dp, iconSize: Dp = 22.dp) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val (colors, content) = buttonColors(kind, enabled)
-    Box(modifier.size(44.dp)
+    Box(modifier.size(size)
         .pixelBlock(colors, pressed = pressed, seed = glyph.name.hashCode())
         .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
         .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center) {
-        PixelIcon(glyph, content, Modifier.offset(y = if (pressed) ArtPixel else 0.dp), size = 22.dp)
+        PixelIcon(glyph, content, Modifier.offset(y = if (pressed) ArtPixel else 0.dp), size = iconSize)
     }
 }
 
@@ -106,7 +108,7 @@ fun PixelPanel(modifier: Modifier = Modifier, colors: BlockColors = PixelTheme.p
 /** Full-width textured top bar that extends under the status bar. */
 @Composable
 fun PixelTopBar(title: String, modifier: Modifier = Modifier, navigation: (@Composable () -> Unit)? = null,
-                actions: @Composable RowScope.() -> Unit = {}) {
+                compact: Boolean = false, actions: @Composable RowScope.() -> Unit = {}) {
     val palette = PixelTheme.palette
     Row(modifier.fillMaxWidth()
         .drawWithCache {
@@ -124,12 +126,13 @@ fun PixelTopBar(title: String, modifier: Modifier = Modifier, navigation: (@Comp
             }
         }
         .statusBarsPadding()
-        .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp)
-        .heightIn(min = 48.dp),
+        .padding(start = 8.dp, end = 8.dp, top = if (compact) 4.dp else 8.dp, bottom = if (compact) 4.dp else 8.dp)
+        .heightIn(min = if (compact) 24.dp else 48.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         navigation?.invoke()
-        Text(title, style = MaterialTheme.typography.titleLarge, color = palette.text, maxLines = 1,
+        Text(title, style = if (compact) MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp, lineHeight = 20.sp)
+            else MaterialTheme.typography.titleLarge, color = palette.text, maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(start = if (navigation == null) 8.dp else 0.dp))
         actions()
@@ -137,8 +140,8 @@ fun PixelTopBar(title: String, modifier: Modifier = Modifier, navigation: (@Comp
 }
 
 @Composable
-fun PixelDivider(modifier: Modifier = Modifier, color: Color = PixelTheme.palette.divider) {
-    Spacer(modifier.fillMaxWidth().height(6.dp).pixelRule(color))
+fun PixelDivider(modifier: Modifier = Modifier, color: Color = PixelTheme.palette.divider, height: Dp = 6.dp) {
+    Spacer(modifier.fillMaxWidth().height(height).pixelRule(color))
 }
 
 /** Pixel-font section heading; hierarchy comes from size and the space above it. */
