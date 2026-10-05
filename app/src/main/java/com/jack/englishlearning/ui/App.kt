@@ -20,9 +20,11 @@ import com.jack.englishlearning.ui.library.LibraryScreen
 import com.jack.englishlearning.ui.library.LibraryViewModel
 import com.jack.englishlearning.ui.study.StudyScreen
 import com.jack.englishlearning.ui.study.StudyViewModel
+import com.jack.englishlearning.ui.settings.SettingsScreen
+import com.jack.englishlearning.ui.theme.ThemeSettings
 
 @Composable
-fun App() {
+fun App(themeSettings: ThemeSettings) {
     val context = LocalContext.current
     val repository = remember { LibraryRepository(context.applicationContext) }
     val factory = remember(repository) {
@@ -52,8 +54,14 @@ fun App() {
     var selectedUri by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedTitle by rememberSaveable { mutableStateOf("") }
     var selectedTranscript by rememberSaveable { mutableStateOf<String?>(null) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     val uri = selectedUri
-    if (uri != null) {
+    if (showSettings) {
+        BackHandler { showSettings = false }
+        SettingsScreen(themeSettings.mode, themeSettings::update, update.state, update.checkMessage,
+            onCheckUpdate = { update.check(manual = true) }, onUpdate = update::update,
+            onBack = { showSettings = false })
+    } else if (uri != null) {
         val video = LearningVideo(uri, selectedTitle, selectedTranscript)
         LaunchedEffect(uri) { study.load(video) }
         val leaveStudy = { study.clear(); selectedUri = null }
@@ -66,6 +74,7 @@ fun App() {
                 selectedTranscript = video.transcriptUri
                 selectedUri = video.uri
             },
+            onSettings = { showSettings = true },
             header = { UpdateCard(update.state, update::update) })
     }
 }
