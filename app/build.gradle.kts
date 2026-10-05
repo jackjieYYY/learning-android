@@ -3,6 +3,16 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+// Release version comes from the Git tag in CI (-PappVersionName=1.4.0); versionCode = major*10000 + minor*100 + patch.
+val appVersionName = (findProperty("appVersionName") as String?) ?: "1.4.0"
+val appVersionCode = Regex("""(\d+)\.(\d+)\.(\d+)""").matchEntire(appVersionName)?.destructured
+    ?.let { (major, minor, patch) ->
+        require(minor.toInt() < 100 && patch.toInt() < 100) { "minor/patch must be < 100: $appVersionName" }
+        major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
+    } ?: error("appVersionName must be MAJOR.MINOR.PATCH: $appVersionName")
+// Release signing is supplied only through environment variables (GitHub Actions secrets); never committed.
+val releaseStoreFile = System.getenv("SIGNING_STORE_FILE")
+
 android {
     namespace = "com.jack.englishlearning"
     compileSdk = 36
@@ -10,10 +20,37 @@ android {
         applicationId = "com.jack.englishlearning"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = appVersionCode
+        versionName = appVersionName
     }
-    buildFeatures { compose = true }
+    signingConfigs {
+        if (releaseStoreFile != null) create("release") {
+            storeFile = file(releaseStoreFile)
+            storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+            keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+            keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+        }
+    }
+    buildTypes {
+        debug {
+            buildConfigField("boolean", "UPDATES_ENABLED", "false")
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
+            buildConfigField("boolean", "UPDATES_ENABLED", "true")
+        }
+    }
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     testOptions { unitTests.isIncludeAndroidResources = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -34,6 +71,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.6.1")
     testImplementation("androidx.work:work-testing:2.10.1")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("org.mockito:mockito-core:5.13.0")
     testImplementation("androidx.compose.ui:ui-test-junit4")

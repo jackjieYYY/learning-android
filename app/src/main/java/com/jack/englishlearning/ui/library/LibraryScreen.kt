@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
 import androidx.work.WorkInfo
+import com.jack.englishlearning.BuildConfig
 import com.jack.englishlearning.data.cloud.CloudLesson
 import com.jack.englishlearning.domain.model.LearningVideo
 import java.util.Locale
@@ -23,7 +24,8 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(state: LibraryUiState, onSelectRoot: (Uri) -> Unit, onRefresh: () -> Unit,
-                  onDownload: (CloudLesson) -> Unit, onPause: (String) -> Unit, onVideo: (LearningVideo) -> Unit) {
+                  onDownload: (CloudLesson) -> Unit, onPause: (String) -> Unit, onVideo: (LearningVideo) -> Unit,
+                  header: @Composable () -> Unit = {}) {
     val context = LocalContext.current
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -38,6 +40,7 @@ fun LibraryScreen(state: LibraryUiState, onSelectRoot: (Uri) -> Unit, onRefresh:
     Scaffold(topBar = { TopAppBar(title = { Text("英语听力") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
+            item(key = "app-update") { header() }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onRefresh, enabled = !state.loading) { Text("刷新课程") }
@@ -94,6 +97,9 @@ fun LibraryScreen(state: LibraryUiState, onSelectRoot: (Uri) -> Unit, onRefresh:
             }
             if (state.videos.isEmpty() && state.cloudLessons.isEmpty() && !state.loading) item {
                 Text("暂时没有课程。连接网络后点击“刷新课程”，也可以导入本地目录。")
+            }
+            item(key = "app-version") {
+                Text("版本 ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
