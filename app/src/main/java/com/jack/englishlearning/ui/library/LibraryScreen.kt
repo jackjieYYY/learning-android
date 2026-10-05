@@ -9,24 +9,31 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.work.WorkInfo
-import com.jack.englishlearning.BuildConfig
 import com.jack.englishlearning.data.cloud.CloudLesson
+import com.jack.englishlearning.data.cloud.CloudLessonStatus
 import com.jack.englishlearning.domain.model.LearningVideo
+import com.jack.englishlearning.ui.pixel.*
+import com.jack.englishlearning.ui.theme.Brand
+import com.jack.englishlearning.ui.theme.PixelTheme
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(state: LibraryUiState, onSelectRoot: (Uri) -> Unit, onRefresh: () -> Unit,
                   onDownload: (CloudLesson) -> Unit, onPause: (String) -> Unit, onVideo: (LearningVideo) -> Unit,
-                  header: @Composable () -> Unit = {}) {
+                  onSettings: () -> Unit = {}, header: @Composable () -> Unit = {}) {
     val context = LocalContext.current
+    val palette = PixelTheme.palette
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) onSelectRoot(uri)
@@ -37,70 +44,107 @@ fun LibraryScreen(state: LibraryUiState, onSelectRoot: (Uri) -> Unit, onRefresh:
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-    Scaffold(topBar = { TopAppBar(title = { Text("英语听力") }) }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
+    Column(Modifier.fillMaxSize()) {
+        PixelTopBar("英语听力", actions = { PixelIconButton(PixelGlyphs.Gear, "设置", onSettings) })
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+        ) {
             item(key = "app-update") { header() }
-            item {
+            item(key = "actions") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onRefresh, enabled = !state.loading) { Text("刷新课程") }
-                    OutlinedButton(onClick = { picker.launch(state.root?.let(Uri::parse)) }) { Text("导入本地目录") }
+                    PixelButton("刷新课程", onRefresh, enabled = !state.loading, icon = PixelGlyphs.Refresh)
+                    PixelButton("导入本地目录", { picker.launch(state.root?.let(Uri::parse)) },
+                        kind = PixelButtonKind.Secondary, icon = PixelGlyphs.Folder)
                 }
             }
-            if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-            item { Text("选择课程下载 · 下载后可离线学习", style = MaterialTheme.typography.labelLarge) }
-            state.error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+            if (state.loading) item(key = "loading") { PixelProgressBar(null) }
+            state.error?.let { message ->
+                item(key = "error") { Text(message, style = MaterialTheme.typography.labelMedium, color = palette.error) }
+            }
             items(state.cloudLessons.sortedByDescending { it.lesson.id }, key = { "course:${it.lesson.id}" }) { status ->
-                val task = state.downloads[status.lesson.id]
-                val busy = task?.state in setOf(WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED)
-                val video = status.video
-                Card(onClick = { video?.let(onVideo) }, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(status.lesson.title, style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(6.dp))
-                        val label = when {
-                            status.updateAvailable -> "有更新 · 旧版可继续学习"
-                            status.downloaded -> "已下载 · 点击学习"
-                            else -> "未下载"
-                        }
-                        Text("$label · ${String.format(Locale.ROOT, "%.1f", status.lesson.videoBytes / 1e6)} MB", style = MaterialTheme.typography.bodySmall)
-                        if (task != null && task.state != WorkInfo.State.SUCCEEDED) {
-                            Text(task.message, style = MaterialTheme.typography.bodySmall,
-                                color = if (task.state == WorkInfo.State.FAILED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (busy || !status.downloaded || status.updateAvailable) {
-                            Spacer(Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (busy) OutlinedButton(onClick = { onPause(status.lesson.id) }) { Text("暂停") }
-                                else Button(onClick = { download(status.lesson) }) {
-                                    Text(when {
-                                        task?.state == WorkInfo.State.CANCELLED -> "继续下载"
-                                        task?.state == WorkInfo.State.FAILED -> "重试"
-                                        status.updateAvailable -> "更新"
-                                        else -> "下载"
-                                    })
-                                }
-                                if (video != null) TextButton(onClick = { onVideo(video) }) { Text("开始学习") }
-                            }
-                        }
-                    }
-                }
+                LessonCard(status, state.downloads[status.lesson.id], onVideo, ::download, onPause)
             }
-            if (state.videos.isNotEmpty()) item { Text("本地教材", style = MaterialTheme.typography.titleSmall) }
+            if (state.videos.isNotEmpty()) item(key = "local-title") {
+                PixelSectionLabel("本地教材", Modifier.padding(top = 8.dp))
+            }
             items(state.videos, key = { it.uri }) { video ->
-                Card(onClick = { onVideo(video) }, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(video.title, style = MaterialTheme.typography.titleMedium)
-                        Text(if (video.transcriptUri == null) "缺少双语文本 · 可播放视频" else "视频 + 中英对照 · 离线学习", style = MaterialTheme.typography.bodySmall)
+                PixelPanel(Modifier.fillMaxWidth(), seed = video.uri.hashCode(), onClick = { onVideo(video) }) {
+                    Text(video.title, style = MaterialTheme.typography.titleMedium, color = palette.text,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (video.transcriptUri == null) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("没有找到中英文本，只能看视频", style = MaterialTheme.typography.labelMedium,
+                            color = palette.textMuted)
                     }
                 }
             }
-            if (state.videos.isEmpty() && state.cloudLessons.isEmpty() && !state.loading) item {
-                Text("暂时没有课程。连接网络后点击“刷新课程”，也可以导入本地目录。")
+            if (state.videos.isEmpty() && state.cloudLessons.isEmpty() && !state.loading) item(key = "empty") {
+                Text("暂时没有课程。连接网络后点击“刷新课程”，也可以导入本地目录。",
+                    style = MaterialTheme.typography.bodyMedium, color = palette.text)
             }
-            item(key = "app-version") {
-                Text("版本 ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            item(key = "bottom-inset") { Spacer(Modifier.navigationBarsPadding()) }
+        }
+    }
+}
+
+@Composable
+private fun LessonCard(status: CloudLessonStatus, task: CourseDownload?, onVideo: (LearningVideo) -> Unit,
+                       onDownload: (CloudLesson) -> Unit, onPause: (String) -> Unit) {
+    val palette = PixelTheme.palette
+    val busy = task?.state in setOf(WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED)
+    val video = status.video
+    PixelPanel(Modifier.fillMaxWidth(), seed = status.lesson.id.hashCode(), onClick = video?.let { { onVideo(it) } }) {
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(status.lesson.title, style = MaterialTheme.typography.titleMedium, color = palette.text,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (status.downloaded && !status.updateAvailable) PixelIcon(PixelGlyphs.Check, palette.green, size = 22.dp)
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (status.updateAvailable) PixelTag("有更新", palette.blue, Brand.Ink)
+            Text(String.format(Locale.ROOT, "%.1f MB", status.lesson.videoBytes / 1e6),
+                style = MaterialTheme.typography.labelMedium, color = palette.textMuted)
+            if (status.updateAvailable) Text("旧版可继续学习", style = MaterialTheme.typography.labelMedium, color = palette.textMuted)
+        }
+        if (task != null && task.state != WorkInfo.State.SUCCEEDED) {
+            Spacer(Modifier.height(16.dp))
+            // One progress signal: the mining block once a percentage is known, a stepped bar while waiting.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val percent = task.percent
+                if (percent != null) MiningBlock(percent / 100f, size = 36.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(task.message, style = MaterialTheme.typography.labelMedium,
+                        color = if (task.state == WorkInfo.State.FAILED) palette.error else palette.text,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (busy && percent == null) PixelProgressBar(null)
+                }
             }
         }
+        if (busy || !status.downloaded || status.updateAvailable) {
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (busy) PixelButton("暂停", { onPause(status.lesson.id) }, kind = PixelButtonKind.Secondary,
+                    icon = PixelGlyphs.Pause)
+                else PixelButton(when {
+                    task?.state == WorkInfo.State.CANCELLED -> "继续下载"
+                    task?.state == WorkInfo.State.FAILED -> "重试"
+                    status.updateAvailable -> "更新"
+                    else -> "下载"
+                }, { onDownload(status.lesson) }, icon = PixelGlyphs.Download)
+                if (video != null) PixelButton("开始学习", { onVideo(video) }, kind = PixelButtonKind.Secondary,
+                    icon = PixelGlyphs.Play)
+            }
+        }
+    }
+}
+
+/** Small flat colour label. */
+@Composable
+private fun PixelTag(text: String, color: Color, textColor: Color) {
+    val palette = PixelTheme.palette
+    Box(Modifier.pixelBlock(BlockColors(color, color, color, palette.outline), textured = false, bevel = false)
+        .padding(horizontal = 8.dp, vertical = 4.dp)) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = textColor)
     }
 }

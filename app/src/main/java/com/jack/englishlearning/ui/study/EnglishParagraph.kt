@@ -9,8 +9,9 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.unit.sp
 import com.jack.englishlearning.domain.model.TranscriptSentence
+import com.jack.englishlearning.ui.theme.PixelTheme
+import com.jack.englishlearning.ui.theme.ReadingEnglish
 
 /** Ranges are constructed with the text, never inferred from punctuation or repeated words. */
 internal class EnglishParagraphText(val sentences: List<TranscriptSentence>) {
@@ -50,7 +51,8 @@ internal fun EnglishParagraph(
         return if (offset in paragraph.text.indices && result.getBoundingBox(offset).contains(position))
             paragraph.sentenceAt(offset) else null
     }
-    Text(paragraph.text, fontSize = 18.sp, lineHeight = 28.sp,
+    Text(paragraph.text, style = ReadingEnglish,
+        color = PixelTheme.palette.text,
         onTextLayout = { layout = it },
         modifier = modifier
             .semantics {

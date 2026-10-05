@@ -16,7 +16,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-data class CourseDownload(val state: WorkInfo.State, val message: String)
+data class CourseDownload(val state: WorkInfo.State, val message: String) {
+    /** Chunk progress reported by the worker as "… · 42%"; null before the first chunk. */
+    val percent: Int? get() = Regex("""(\d{1,3})%""").findAll(message).lastOrNull()
+        ?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(0, 100)
+}
 data class LibraryUiState(
     val root: String? = null,
     val videos: List<LearningVideo> = emptyList(),

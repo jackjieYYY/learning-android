@@ -37,6 +37,9 @@ class UpdateViewModel(
     var permissionRequest by mutableStateOf(false)
         private set
     private var job: Job? = null
+    /** Result of a check the user started from settings; automatic checks stay silent. */
+    var checkMessage by mutableStateOf<String?>(null)
+        private set
 
     init {
         viewModelScope.launch {
@@ -51,20 +54,29 @@ class UpdateViewModel(
         }
     }
 
-    fun check() {
+    fun check(manual: Boolean = false) {
+        if (manual && !enabled) { checkMessage = "调试版不检查更新"; return }
         if (!enabled || job?.isActive == true || state is UpdateUiState.Installing) return
+        if (manual) checkMessage = "正在检查…"
         job = viewModelScope.launch {
             try {
                 val info = updater.latest()
                 if (info.versionCode <= currentVersionCode) {
                     updater.clean()
                     state = UpdateUiState.None
-                } else if (state.info() != info) {
-                    updater.clean(keep = info)
-                    state = UpdateUiState.Available(info)
+                    if (manual) checkMessage = "已是最新版本"
+                } else {
+                    if (state.info() != info) {
+                        updater.clean(keep = info)
+                        state = UpdateUiState.Available(info)
+                    }
+                    if (manual) checkMessage = "发现新版本 ${info.versionName}"
                 }
             } catch (cancel: CancellationException) { throw cancel }
-            catch (_: Exception) { /* Offline or GitHub unreachable: stay quiet, the app works without updates. */ }
+            catch (_: Exception) {
+                // Offline or GitHub unreachable: automatic checks stay quiet, the app works without updates.
+                if (manual) checkMessage = "检查失败，请确认网络后重试"
+            }
         }
     }
 

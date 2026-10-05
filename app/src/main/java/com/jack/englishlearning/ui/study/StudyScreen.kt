@@ -15,17 +15,19 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.media3.common.Player
-import androidx.compose.material3.*
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import com.jack.englishlearning.ui.pixel.*
+import com.jack.englishlearning.ui.theme.PixelTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.jack.englishlearning.MainActivity
 import com.jack.englishlearning.data.LibraryRepository
 import com.jack.englishlearning.domain.model.LearningVideo
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, state: StudyUiState, onBack: () -> Unit) {
     var player by remember(video.uri) { mutableStateOf<Player?>(null) }
@@ -48,21 +50,22 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
     val videoPane = remember(video.uri, repository) {
         movableContentOf<Modifier> { modifier -> VideoPane(video, repository, modifier) { player = it } }
     }
-    Scaffold(topBar = {
-        if (!inPip) TopAppBar(title = { Text(video.title, maxLines = 1) }, navigationIcon = {
-            TextButton(onClick = onBack) { Text("返回") }
-        })
-    }) { padding ->
-        val contentModifier = Modifier.fillMaxSize().padding(if (inPip) PaddingValues(0.dp) else padding)
+    val palette = PixelTheme.palette
+    Column(Modifier.fillMaxSize()) {
+        if (!inPip) PixelTopBar(video.title, navigation = { PixelIconButton(PixelGlyphs.Back, "返回", onBack) })
+        val contentModifier = Modifier.weight(1f).fillMaxWidth()
         val bilingualPane: @Composable (Modifier) -> Unit = { modifier ->
             Column(modifier) {
-                Text("点英文句子播放 · 双击暂停/继续 · 左滑 −5秒 / 右滑 +5秒" +
-                    if (state.paragraphs.any { it.explanation != null }) " · 长按看讲解" else "",
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                Text("点句播放，双击暂停或继续，左右滑动调整 5 秒。" +
+                    (if (state.paragraphs.any { it.explanation != null }) "\n长按段落看讲解。" else ""),
+                    style = MaterialTheme.typography.labelSmall, color = palette.textMuted,
+                    modifier = Modifier.fillMaxWidth().background(palette.background)
+                        .padding(horizontal = 16.dp, vertical = 8.dp))
+                PixelDivider()
                 when {
-                    state.loading -> CircularProgressIndicator(Modifier.padding(16.dp))
-                    state.error != null -> Text(state.error, modifier = Modifier.padding(16.dp))
+                    state.loading -> PixelProgressBar(null, Modifier.padding(16.dp))
+                    state.error != null -> Text(state.error, style = MaterialTheme.typography.bodyMedium,
+                        color = palette.error, modifier = Modifier.padding(16.dp))
                     else -> LazyColumn(state = listState,
                         modifier = Modifier.weight(1f).fillMaxWidth()
                             .pointerInput(player, swipeThreshold) {
@@ -86,17 +89,19 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
                                 // Handles double taps in the gaps; rows handle their own taps.
                                 detectTapGestures(onDoubleTap = { player?.let(::togglePlayback) })
                             },
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         itemsIndexed(state.paragraphs) { index, paragraph ->
                             val explain: (() -> Unit)? = if (paragraph.explanation != null)
                                 ({ showExplanation(index) }) else null
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (index > 0) PixelDivider(Modifier.padding(bottom = 8.dp))
                                 EnglishParagraph(paragraph.sentences, Modifier.fillMaxWidth(),
                                     onSentence = { start -> player?.let { seekPlayback(it, start, play = true) } },
                                     onDoubleTap = { player?.let(::togglePlayback) },
                                     onExplanation = explain)
-                                Text(paragraph.translation, fontSize = 18.sp, lineHeight = 28.sp,
+                                Text(paragraph.translation, style = MaterialTheme.typography.bodyLarge,
+                                    color = palette.textMuted,
                                     modifier = Modifier.fillMaxWidth().then(if (explain != null)
                                         Modifier.semantics {
                                             customActions = listOf(CustomAccessibilityAction("查看老师讲解") {
@@ -107,7 +112,8 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
                                                 onLongPress = { explain() },
                                                 onDoubleTap = { player?.let(::togglePlayback) })
                                         } else Modifier))
-                                if (explain != null) TextButton(onClick = explain) { Text("讲解") }
+                                if (explain != null) PixelButton("讲解", explain, kind = PixelButtonKind.Secondary,
+                                    icon = PixelGlyphs.Book)
                             }
                         }
                     }
@@ -118,14 +124,14 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
             inPip -> Box(contentModifier) {
                 videoPane(Modifier.fillMaxSize())
             }
-            isLandscape -> Row(contentModifier) {
+            isLandscape -> Row(contentModifier.navigationBarsPadding()) {
                 videoPane(Modifier.weight(1f).fillMaxHeight())
-                VerticalDivider()
+                Spacer(Modifier.fillMaxHeight().width(2.dp).background(palette.outline))
                 bilingualPane(Modifier.weight(3f).fillMaxHeight())
             }
-            else -> Column(contentModifier) {
+            else -> Column(contentModifier.navigationBarsPadding()) {
                 videoPane(Modifier.weight(1f).fillMaxWidth())
-                HorizontalDivider()
+                Spacer(Modifier.fillMaxWidth().height(2.dp).background(palette.outline))
                 bilingualPane(Modifier.weight(3f).fillMaxWidth())
             }
         }
