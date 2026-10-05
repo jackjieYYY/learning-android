@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,6 +31,7 @@ fun App() {
         }
     }
     val library: LibraryViewModel = viewModel(factory = factory)
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { library.refresh() }
     val study: StudyViewModel = viewModel(factory = factory)
     var selectedUri by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedTitle by rememberSaveable { mutableStateOf("") }
@@ -41,7 +44,7 @@ fun App() {
         BackHandler(onBack = leaveStudy)
         StudyScreen(video, repository, study.state, onBack = leaveStudy)
     } else {
-        LibraryScreen(library.state, library::selectRoot, library::refresh) { video ->
+        LibraryScreen(library.state, library::selectRoot, library::refresh, library::download, library::pause) { video ->
             selectedTitle = video.title
             selectedTranscript = video.transcriptUri
             selectedUri = video.uri

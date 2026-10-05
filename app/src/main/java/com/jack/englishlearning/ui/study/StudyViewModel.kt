@@ -1,5 +1,6 @@
 package com.jack.englishlearning.ui.study
 
+import com.jack.englishlearning.domain.model.TranscriptParagraph
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -11,7 +12,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-data class StudyUiState(val paragraphs: List<String> = emptyList(), val loading: Boolean = true, val error: String? = null)
+data class StudyUiState(val paragraphs: List<TranscriptParagraph> = emptyList(), val loading: Boolean = true, val error: String? = null)
 
 class StudyViewModel(private val repository: LibraryRepository) : ViewModel() {
     var state by mutableStateOf(StudyUiState())
@@ -33,7 +34,7 @@ class StudyViewModel(private val repository: LibraryRepository) : ViewModel() {
         loadJob = viewModelScope.launch {
             try {
                 val uri = video.transcriptUri
-                if (uri == null) state = state.copy(error = "此视频没有双语文本，请添加同名 .bilingual.txt 后返回列表刷新。")
+                if (uri == null) state = state.copy(error = "此视频没有双语文本，请添加同名 .bilingual.json 后返回列表刷新。")
                 else {
                     val paragraphs = repository.transcript(uri)
                     state = state.copy(paragraphs = paragraphs, error = if (paragraphs.isEmpty()) "双语文本为空。" else null)

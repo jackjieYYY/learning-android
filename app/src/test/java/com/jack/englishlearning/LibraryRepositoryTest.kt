@@ -62,9 +62,11 @@ class LibraryRepositoryTest {
         private val entries = listOf(
             Entry("root", null, "library", DocumentsContract.Document.MIME_TYPE_DIR),
             Entry("root-video", "root", "root-video.mp4", "video/mp4"),
+            Entry("old-transcript", "root", "root-video.bilingual.txt", "text/plain"),
+            Entry("old-srt", "root", "root-video.bilingual.srt", "text/plain"),
             Entry("folder", "root", "unit", DocumentsContract.Document.MIME_TYPE_DIR),
             Entry("unit-video", "folder", "unit_1.MP4", "video/mp4"),
-            Entry("unit-transcript", "folder", "UNIT_1.bilingual.TXT", "text/plain"),
+            Entry("unit-transcript", "folder", "UNIT_1.bilingual.JSON", "text/plain"),
             Entry("deeper", "folder", "deeper", DocumentsContract.Document.MIME_TYPE_DIR),
             Entry("nested-video", "deeper", "nested.mp4", "video/mp4")
         )

@@ -1,12 +1,13 @@
 package com.jack.englishlearning.data.local
 
+import com.jack.englishlearning.domain.model.TranscriptParagraph
 import android.content.Context
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class TranscriptReader(private val context: Context) {
-    suspend fun transcript(uri: String): List<String> = withContext(Dispatchers.IO) {
+    suspend fun transcript(uri: String): List<TranscriptParagraph> = withContext(Dispatchers.IO) {
         val text = context.contentResolver.openInputStream(Uri.parse(uri))?.use { stream ->
             // Bound memory use for accidentally selected binary / enormous files.
             val buffer = java.io.ByteArrayOutputStream()
