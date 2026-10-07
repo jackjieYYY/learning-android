@@ -77,6 +77,38 @@ class LearningFilesTest {
         }
     }
 
+    private val pronunciation = """[{"sentenceIndex":1,"quote":"Welcome.","actual":"开头音节较突出。","difficulty":"注意节奏。","listenFor":"听清开头。","generalRule":""}]"""
+
+    private fun withPronunciation(value: Any): String = JSONObject(valid).apply {
+        getJSONArray("paragraphs").getJSONObject(0).put("pronunciationNotes", value)
+    }.toString()
+
+    @Test fun pronunciationWorksWithoutExistingExplanationAndLinksToSentence() {
+        val paragraph = LearningFiles.paragraphs(withPronunciation(org.json.JSONArray(pronunciation))).single()
+        assertTrue(paragraph.hasTeachingNotes)
+        assertNull(paragraph.explanation)
+        val note = paragraph.pronunciationNotes.single()
+        assertEquals(3000L, paragraph.sentences[note.sentenceIndex].startMs)
+        assertEquals("Welcome.", note.quote)
+        assertEquals("", note.generalRule)
+    }
+
+    @Test fun invalidPronunciationIsIgnoredWithoutLosingTranscriptOrExplanation() {
+        val malformed = listOf<Any>("text", JSONObject.NULL,
+            org.json.JSONArray(pronunciation.replace("\"sentenceIndex\":1", "\"sentenceIndex\":2")),
+            org.json.JSONArray(pronunciation.replace("\"sentenceIndex\":1", "\"sentenceIndex\":true")),
+            org.json.JSONArray(pronunciation.replace("Welcome.", "Hello.")),
+            org.json.JSONArray(pronunciation.replace("听清开头。", " ")))
+        malformed.forEach {
+            val document = JSONObject(withNote(JSONObject(note)))
+            document.getJSONArray("paragraphs").getJSONObject(0).put("pronunciationNotes", it)
+            val paragraph = LearningFiles.paragraphs(document.toString()).single()
+            assertTrue(paragraph.pronunciationNotes.isEmpty())
+            assertNotNull(paragraph.explanation)
+            assertEquals(2, paragraph.sentences.size)
+        }
+    }
+
     @Test fun rejectsTimeGoingBackAcrossParagraphs() {
         val paragraph = """{"sentences":[{"startMs":%d,"text":"Hi."}],"translation":"你好。"}"""
         assertThrows(IllegalArgumentException::class.java) {
