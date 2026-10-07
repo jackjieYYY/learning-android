@@ -21,9 +21,11 @@ internal fun ExplanationSheet(
     paragraph: TranscriptParagraph,
     pausedPlayback: Boolean,
     onDismiss: () -> Unit,
-    onPlayParagraph: () -> Unit
+    onPlayParagraph: () -> Unit,
+    onPlaySentence: (Long) -> Unit = {}
 ) {
-    val explanation = paragraph.explanation ?: return
+    if (!paragraph.hasTeachingNotes) return
+    val explanation = paragraph.explanation
     val palette = PixelTheme.palette
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -57,21 +59,38 @@ internal fun ExplanationSheet(
                         Spacer(Modifier.height(8.dp))
                         Text(paragraph.translation, style = MaterialTheme.typography.bodyLarge, color = palette.textMuted)
                     }
-                    ExplanationSection("这段怎么理解") {
-                        Text(explanation.summary, style = MaterialTheme.typography.bodyLarge, color = palette.text)
+                    if (explanation != null) {
+                        ExplanationSection("这段怎么理解") {
+                            Text(explanation.summary, style = MaterialTheme.typography.bodyLarge, color = palette.text)
+                        }
+                        if (explanation.expressions.isNotEmpty()) ExplanationSection("值得学的表达") {
+                            explanation.expressions.forEach { NoteItem(it.text, it.explanation) }
+                        }
+                        if (explanation.sentenceNotes.isNotEmpty()) ExplanationSection("句子拆解") {
+                            explanation.sentenceNotes.forEach { NoteItem(it.quote, it.explanation) }
+                        }
+                        if (explanation.pitfalls.isNotEmpty()) ExplanationSection("容易理解错的地方") {
+                            explanation.pitfalls.forEachIndexed { index, text ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("${index + 1}.", style = MaterialTheme.typography.bodyLarge, color = palette.textMuted)
+                                    Text(text, style = MaterialTheme.typography.bodyLarge, color = palette.text,
+                                        modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
                     }
-                    if (explanation.expressions.isNotEmpty()) ExplanationSection("值得学的表达") {
-                        explanation.expressions.forEach { NoteItem(it.text, it.explanation) }
-                    }
-                    if (explanation.sentenceNotes.isNotEmpty()) ExplanationSection("句子拆解") {
-                        explanation.sentenceNotes.forEach { NoteItem(it.quote, it.explanation) }
-                    }
-                    if (explanation.pitfalls.isNotEmpty()) ExplanationSection("容易理解错的地方") {
-                        explanation.pitfalls.forEachIndexed { index, text ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("${index + 1}.", style = MaterialTheme.typography.bodyLarge, color = palette.textMuted)
-                                Text(text, style = MaterialTheme.typography.bodyLarge, color = palette.text,
-                                    modifier = Modifier.weight(1f))
+                    if (paragraph.pronunciationNotes.isNotEmpty()) ExplanationSection("发音与连读") {
+                        paragraph.pronunciationNotes.forEach { note ->
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(note.quote, style = ReadingEnglish.copy(fontWeight = FontWeight.Bold), color = palette.text)
+                                Text("这段怎么读：${note.actual}", style = MaterialTheme.typography.bodyLarge, color = palette.text)
+                                Text("为什么难听清：${note.difficulty}", style = MaterialTheme.typography.bodyLarge, color = palette.text)
+                                Text("回听时注意：${note.listenFor}", style = MaterialTheme.typography.bodyLarge, color = palette.text)
+                                if (note.generalRule.isNotBlank()) Text("一般规律：${note.generalRule}",
+                                    style = MaterialTheme.typography.bodyLarge, color = palette.textMuted)
+                                PixelButton("回听这句", {
+                                    onPlaySentence(paragraph.sentences[note.sentenceIndex].startMs)
+                                }, kind = PixelButtonKind.Secondary, icon = PixelGlyphs.Play)
                             }
                         }
                     }

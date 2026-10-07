@@ -32,13 +32,32 @@ import org.robolectric.annotation.Config
 class ExplanationUiTest {
     @get:Rule val compose = createComposeRule()
     private val sentences = listOf(TranscriptSentence(1250, "Hello."))
-    private fun characterCenter(): Offset {
+    private fun characterBox(index: Int = 0): androidx.compose.ui.geometry.Rect {
         val layouts = mutableListOf<TextLayoutResult>()
         compose.onNodeWithText("Hello.").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-        return layouts.single().getBoundingBox(0).center
+        return layouts.single().getBoundingBox(index)
+    }
+    private fun characterCenter(): Offset = characterBox().center
+
+    @Test fun tapAnywhereInsideGlyphSeeks() {
+        val starts = mutableListOf<Long>()
+        compose.setContent { MaterialTheme {
+            EnglishParagraph(sentences, Modifier.width(260.dp),
+                onSentence = { starts += it }, onDoubleTap = {})
+        } }
+        // Right halves resolve to the next caret offset; they must still hit the glyph underneath.
+        val targets = (0 until "Hello.".length).flatMap { index ->
+            val box = characterBox(index)
+            listOf(Offset(box.left + 1f, box.center.y), Offset(box.right - 1f, box.center.y))
+        }
+        targets.forEach { target ->
+            compose.onNodeWithText("Hello.").performTouchInput { click(target) }
+            compose.mainClock.advanceTimeBy(500)
+        }
+        compose.runOnIdle { assertEquals(List(targets.size) { 1250L }, starts) }
     }
 
-    @Test fun longPressOpensExplanationWithoutSeekingOrToggling() {
+    @Test fun longPressNoLongerOpensExplanation() {
         var explained = 0
         var seeks = 0
         var toggles = 0
@@ -49,7 +68,7 @@ class ExplanationUiTest {
         val target = characterCenter()
         compose.onNodeWithText("Hello.").performTouchInput { longClick(target) }
         compose.runOnIdle {
-            assertEquals(1, explained)
+            assertEquals(0, explained)
             assertEquals(0, seeks)
             assertEquals(0, toggles)
         }
@@ -90,6 +109,21 @@ class ExplanationUiTest {
             up()
         }
         compose.runOnIdle { assertEquals(0, explained) }
+    }
+
+    @Test fun pronunciationOnlySheetReplaysVerifiedSentenceStart() {
+        var replayed: Long? = null
+        val paragraph = TranscriptParagraph(sentences, "你好。", pronunciationNotes = listOf(
+            PronunciationNote(0, "Hello.", "开头轻，末尾重。", "容易漏掉开头。", "听末尾音节。", "")))
+        compose.setContent { MaterialTheme {
+            ExplanationSheet(paragraph, false, onDismiss = {}, onPlayParagraph = {},
+                onPlaySentence = { replayed = it })
+        } }
+        compose.mainClock.advanceTimeBy(1000)
+        compose.onNodeWithText("发音与连读").assertExists()
+        compose.onNodeWithText("这段怎么理解").assertDoesNotExist()
+        compose.onNodeWithText("回听这句").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1250L, replayed) }
     }
 
     @Test fun sheetHidesEmptySectionsAndOffersCloseAndReplay() {

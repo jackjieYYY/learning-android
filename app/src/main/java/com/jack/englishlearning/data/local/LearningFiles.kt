@@ -1,5 +1,6 @@
 package com.jack.englishlearning.data.local
 
+import com.jack.englishlearning.domain.model.PronunciationNote
 import com.jack.englishlearning.domain.model.ExplainedExpression
 import com.jack.englishlearning.domain.model.ExplainedSentence
 import com.jack.englishlearning.domain.model.ParagraphExplanation
@@ -32,7 +33,8 @@ object LearningFiles {
                     TranscriptSentence(startMs, (body as String).trim())
                 }
                 TranscriptParagraph(parsedSentences, translation.trim(),
-                    optionalExplanation(paragraph.opt("explanation"), parsedSentences.joinToString(" ") { it.text }))
+                    optionalExplanation(paragraph.opt("explanation"), parsedSentences.joinToString(" ") { it.text }),
+                    optionalPronunciation(paragraph.opt("pronunciationNotes"), parsedSentences))
             }
         } catch (error: org.json.JSONException) {
             throw IllegalArgumentException("双语 JSON 格式错误，请检查 paragraphs、sentences、startMs、text 和 translation。", error)
@@ -70,6 +72,29 @@ object LearningFiles {
             null
         } catch (_: IllegalArgumentException) {
             null
+        }
+    }
+
+    private fun optionalPronunciation(value: Any?, sentences: List<TranscriptSentence>): List<PronunciationNote> {
+        if (value == null || value == JSONObject.NULL) return emptyList()
+        return try {
+            require(value is org.json.JSONArray && value.length() <= 3)
+            List(value.length()) { index ->
+                val item = value.getJSONObject(index)
+                keys(item, setOf("sentenceIndex", "quote", "actual", "difficulty", "listenFor", "generalRule"))
+                val sentenceIndex = item.get("sentenceIndex")
+                require(sentenceIndex is Int && sentenceIndex in sentences.indices)
+                val quote = nonBlank(item.get("quote"))
+                require(sentences[sentenceIndex].text.contains(quote))
+                val generalRule = item.get("generalRule")
+                require(generalRule is String)
+                PronunciationNote(sentenceIndex, quote, nonBlank(item.get("actual")),
+                    nonBlank(item.get("difficulty")), nonBlank(item.get("listenFor")), generalRule.trim())
+            }
+        } catch (_: org.json.JSONException) {
+            emptyList()
+        } catch (_: IllegalArgumentException) {
+            emptyList()
         }
     }
 

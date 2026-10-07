@@ -46,10 +46,14 @@ internal fun EnglishParagraph(
     val explain by rememberUpdatedState(onExplanation)
     fun sentenceAt(position: androidx.compose.ui.geometry.Offset): TranscriptSentence? {
         val result = layout ?: return null
-        val offset = result.getOffsetForPosition(position)
-        // Ignore whitespace outside the rendered text; the layout otherwise snaps to a character.
-        return if (offset in paragraph.text.indices && result.getBoundingBox(offset).contains(position))
-            paragraph.sentenceAt(offset) else null
+        // getOffsetForPosition returns the nearest caret position: the right half of character i
+        // yields i + 1, so check both neighbours for the character actually under the finger.
+        // Positions outside every glyph box (blank space after a line) stay unhandled.
+        val caret = result.getOffsetForPosition(position)
+        val offset = sequenceOf(caret - 1, caret).firstOrNull {
+            it in paragraph.text.indices && result.getBoundingBox(it).contains(position)
+        } ?: return null
+        return paragraph.sentenceAt(offset)
     }
     Text(paragraph.text, style = ReadingEnglish,
         color = PixelTheme.palette.text,
@@ -62,12 +66,9 @@ internal fun EnglishParagraph(
                     CustomAccessibilityAction("查看老师讲解") { explain?.invoke(); true }
                 ) else emptyList()
             }
-            .pointerInput(paragraph, onExplanation != null) {
+            .pointerInput(paragraph) {
                 detectTapGestures(
                     onDoubleTap = { toggle() },
-                    onLongPress = if (onExplanation != null) ({ position ->
-                        if (sentenceAt(position) != null) explain?.invoke()
-                    }) else null,
                     onTap = { position -> sentenceAt(position)?.let { seek(it.startMs) } }
                 )
             })

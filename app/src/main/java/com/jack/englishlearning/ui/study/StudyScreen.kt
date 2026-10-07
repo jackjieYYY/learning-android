@@ -35,13 +35,14 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
     var explanationIndex by rememberSaveable(video.uri) { mutableStateOf<Int?>(null) }
     var pausedForExplanation by rememberSaveable(video.uri) { mutableStateOf(false) }
     fun showExplanation(index: Int) {
-        if (state.paragraphs.getOrNull(index)?.explanation == null) return
+        if (state.paragraphs.getOrNull(index)?.hasTeachingNotes != true) return
         pausedForExplanation = player?.playWhenReady == true
         player?.pause()
         explanationIndex = index
     }
     val swipeThreshold = with(LocalDensity.current) { 48.dp.toPx() }
-    val listState = rememberLazyListState()
+    val listState = key(video.uri) { rememberLazyListState() }
+    FollowTranscript(player, video.uri, state.paragraphs, listState)
     val inPip = (LocalActivity.current as MainActivity).inPictureInPicture
     LaunchedEffect(inPip) {
         if (inPip) explanationIndex = null
@@ -58,8 +59,7 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
         val contentModifier = Modifier.weight(1f).fillMaxWidth()
         val bilingualPane: @Composable (Modifier) -> Unit = { modifier ->
             Column(modifier) {
-                Text("点句播放 · 双击暂停 · 左右±5秒" +
-                    (if (state.paragraphs.any { it.explanation != null }) " · 长按讲解" else ""),
+                Text("点句播放 · 双击暂停 · 左右±5秒",
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 14.sp), color = palette.textMuted,
                     modifier = Modifier.fillMaxWidth().background(palette.background)
                         .padding(horizontal = 8.dp, vertical = 2.dp))
@@ -94,7 +94,7 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         itemsIndexed(state.paragraphs) { index, paragraph ->
-                            val explain: (() -> Unit)? = if (paragraph.explanation != null)
+                            val explain: (() -> Unit)? = if (paragraph.hasTeachingNotes)
                                 ({ showExplanation(index) }) else null
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 if (index > 0) PixelDivider(Modifier.padding(bottom = 8.dp))
@@ -109,10 +109,6 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
                                             customActions = listOf(CustomAccessibilityAction("查看老师讲解") {
                                                 explain(); true
                                             })
-                                        }.pointerInput(paragraph) {
-                                            detectTapGestures(
-                                                onLongPress = { explain() },
-                                                onDoubleTap = { player?.let(::togglePlayback) })
                                         } else Modifier))
                                 if (explain != null) PixelButton("讲解", explain, kind = PixelButtonKind.Secondary,
                                     icon = PixelGlyphs.Book)
@@ -139,12 +135,16 @@ internal fun StudyScreen(video: LearningVideo, repository: LibraryRepository, st
         }
     }
     val explainedParagraph = explanationIndex?.let(state.paragraphs::getOrNull)
-    if (!inPip && explainedParagraph?.explanation != null) {
+    if (!inPip && explainedParagraph?.hasTeachingNotes == true) {
         ExplanationSheet(explainedParagraph, pausedForExplanation,
             onDismiss = { explanationIndex = null },
             onPlayParagraph = {
                 explanationIndex = null
                 player?.let { seekPlayback(it, explainedParagraph.sentences.first().startMs, play = true) }
+            },
+            onPlaySentence = { startMs ->
+                explanationIndex = null
+                player?.let { seekPlayback(it, startMs, play = true) }
             })
     }
 }
