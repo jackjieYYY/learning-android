@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat
 import androidx.work.WorkInfo
 import com.jack.englishlearning.data.cloud.CloudLesson
 import com.jack.englishlearning.data.cloud.CloudLessonStatus
+import com.jack.englishlearning.data.cloud.newestFirst
 import com.jack.englishlearning.domain.model.LearningVideo
 import com.jack.englishlearning.ui.pixel.*
 import com.jack.englishlearning.ui.theme.Brand
@@ -65,7 +66,7 @@ fun LibraryScreen(state: LibraryUiState, onRefresh: () -> Unit,
             state.error?.let { message ->
                 item(key = "error") { Text(message, style = MaterialTheme.typography.labelMedium, color = palette.error) }
             }
-            items(state.cloudLessons.sortedByDescending { it.lesson.id }, key = { "course:${it.lesson.id}" }) { status ->
+            items(state.cloudLessons.newestFirst(), key = { "course:${it.lesson.id}" }) { status ->
                 LessonCard(status, state.downloads[status.lesson.id], onVideo, ::download, onPause)
             }
             if (state.videos.isNotEmpty()) item(key = "local-title") {

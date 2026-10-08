@@ -10,9 +10,12 @@ private val hashPattern = Regex("[a-f0-9]{64}")
 private val idPattern = Regex("[a-z0-9]+(?:-[a-z0-9]+)*")
 
 data class CloudAsset(val path: String, val size: Long, val sha256: String)
-data class CloudLesson(val id: String, val title: String, val version: String, val videoBytes: Long, val manifest: CloudAsset, val timelineVersion: String = "1")
+data class CloudLesson(val id: String, val title: String, val version: String, val videoBytes: Long, val manifest: CloudAsset, val timelineVersion: String = "1", val timestamp: Long = 0)
 data class CloudManifest(val id: String, val title: String, val videoSize: Long, val videoHash: String, val chunks: List<CloudAsset>, val transcript: CloudAsset, val timelineVersion: String = "1")
 data class CloudLessonStatus(val lesson: CloudLesson, val downloaded: Boolean, val updateAvailable: Boolean, val video: com.jack.englishlearning.domain.model.LearningVideo? = null)
+
+fun List<CloudLessonStatus>.newestFirst(): List<CloudLessonStatus> =
+    sortedWith(compareByDescending<CloudLessonStatus> { it.lesson.timestamp }.thenByDescending { it.lesson.id })
 
 object CloudFormat {
     fun baseUrl(value: String): String {
@@ -43,6 +46,12 @@ object CloudFormat {
     private fun timeline(json: JSONObject) = json.optString("timelineVersion", "1").also {
         require(Regex("[a-zA-Z0-9_-]{1,64}").matches(it)) { "教材时间轴版本无效。" }
     }
+    private fun timestamp(json: JSONObject): Long {
+        if (!json.has("timestamp")) return 0 // Cached catalogs from older releases.
+        val value = json.get("timestamp")
+        require(value is Int || value is Long) { "教材发布日期必须为 Unix 秒时间戳。" }
+        return (value as Number).toLong().also { require(it in 0..253402300799L) { "教材发布日期无效。" } }
+    }
     private fun title(json: JSONObject) = json.getString("title").also { require(it.isNotBlank() && it.length <= 500) }
     private fun asset(json: JSONObject, maximum: Long) = CloudAsset(path(json.getString("path")), size(json, "size", maximum), hash(json.getString("sha256")))
     private fun root(text: String) = JSONObject(text).also { require(it.getInt("schemaVersion") == 1) { "教材库版本不受支持，请更新 App。" } }
@@ -55,7 +64,7 @@ object CloudFormat {
             val manifest = asset(json.getJSONObject("manifest"), MAX_JSON_BYTES)
             val version = hash(json.getString("version"))
             require(version == manifest.sha256) { "教材版本与清单不一致。" }
-            CloudLesson(id(json.getString("id")), title(json), version, size(json, "videoBytes", 100L * 1024 * 1024 * 1024), manifest, timeline(json))
+            CloudLesson(id(json.getString("id")), title(json), version, size(json, "videoBytes", 100L * 1024 * 1024 * 1024), manifest, timeline(json), timestamp(json))
         }
         require(lessons.map { it.id }.distinct().size == lessons.size) { "教材 ID 重复。" }
         return lessons
@@ -64,7 +73,7 @@ object CloudFormat {
     fun encodeLesson(lesson: CloudLesson): String = JSONObject()
         .put("schemaVersion", 1).put("lessons", org.json.JSONArray().put(JSONObject()
             .put("id", lesson.id).put("title", lesson.title).put("version", lesson.version)
-            .put("videoBytes", lesson.videoBytes).put("timelineVersion", lesson.timelineVersion)
+            .put("videoBytes", lesson.videoBytes).put("timelineVersion", lesson.timelineVersion).put("timestamp", lesson.timestamp)
             .put("manifest", JSONObject().put("path", lesson.manifest.path).put("size", lesson.manifest.size)
                 .put("sha256", lesson.manifest.sha256)))).toString()
 

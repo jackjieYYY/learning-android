@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 // Release version comes from the Git tag in CI (-PappVersionName=1.4.0); versionCode = major*10000 + minor*100 + patch.
-val appVersionName = (findProperty("appVersionName") as String?) ?: "1.6.0"
+val appVersionName = (findProperty("appVersionName") as String?) ?: "1.7.1"
 val appVersionCode = Regex("""(\d+)\.(\d+)\.(\d+)""").matchEntire(appVersionName)?.destructured
     ?.let { (major, minor, patch) ->
         require(minor.toInt() < 100 && patch.toInt() < 100) { "minor/patch must be < 100: $appVersionName" }
