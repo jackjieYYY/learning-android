@@ -2,6 +2,8 @@
 
 Kotlin + Compose + Media3 的英语听力学习 App。教材来自 Cloudflare Workers 静态教材库，下载后可离线学习。
 
+1.7.1 起，教材库使用 catalog 中的 `timestamp`（素材发布日期，Unix 秒）按新到旧排列，同值按教材 ID 降序排列。旧目录缺少 timestamp 时按 0 处理，仍可读取；日期字段保存在目录缓存和下载任务中。timestamp 不改变教材 manifest 版本或播放进度。
+
 ## 开发
 
 ```bash

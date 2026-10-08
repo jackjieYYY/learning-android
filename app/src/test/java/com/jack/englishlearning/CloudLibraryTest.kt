@@ -181,6 +181,34 @@ class CloudLibraryTest {
         assertEquals(1, library.statuses().size)
     }
 
+    @Test fun timestampsSortNewestFirstAndSurviveQueuedDownloadEncoding() {
+        publish()
+        val legacy = CloudFormat.catalog(files.getValue("catalog.json").toString(Charsets.UTF_8)).single()
+        assertEquals(0L, legacy.timestamp)
+        val lessons = listOf(
+            legacy.copy(id = "abc-news-victoria-sep-30", timestamp = 1790726400L),
+            legacy.copy(id = "abc-news-victoria-oct-1", timestamp = 1790812800L),
+            legacy.copy(id = "abc-news-victoria-oct-9", timestamp = 1791504000L),
+            legacy.copy(id = "abc-news-victoria-oct-10", timestamp = 1791590400L),
+            legacy.copy(id = "abc-news-victoria-jan-1", timestamp = 1798761600L),
+            legacy.copy(id = "tie-a", timestamp = 1790812800L),
+            legacy.copy(id = "tie-z", timestamp = 1790812800L), legacy)
+        val decoded = lessons.map { CloudFormat.catalog(CloudFormat.encodeLesson(it)).single() }
+        assertEquals(lessons, decoded)
+        assertEquals(listOf("abc-news-victoria-jan-1", "abc-news-victoria-oct-10", "abc-news-victoria-oct-9",
+            "tie-z", "tie-a", "abc-news-victoria-oct-1", "abc-news-victoria-sep-30", "lesson-one"),
+            decoded.map { CloudLessonStatus(it, false, false) }.newestFirst().map { it.lesson.id })
+    }
+
+    @Test fun rejectsInvalidAndMillisecondTimestamps() {
+        publish()
+        for (value in listOf<Any>(-1L, 1790812800000L, "1790812800", 1790812800.5, true, JSONObject.NULL)) {
+            val catalog = JSONObject(files.getValue("catalog.json").toString(Charsets.UTF_8))
+            catalog.getJSONArray("lessons").getJSONObject(0).put("timestamp", value)
+            try { CloudFormat.catalog(catalog.toString()); fail("Accepted $value") } catch (_: IllegalArgumentException) { }
+        }
+    }
+
     @Test fun rejectsTraversalAndNonHttpsEndpoints() {
         for (path in listOf("../secret", "https://evil.example/file", "/absolute", "a/%2e%2e/b", "a//b")) {
             try { CloudFormat.path(path); fail("Accepted $path") } catch (_: IllegalArgumentException) { }
